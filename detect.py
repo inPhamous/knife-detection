@@ -1,5 +1,5 @@
 import cv2
-capture = cv2.VideoCapture(0)
+import os
 
 def detect_faces(video_file, detector, win_title):
     cap = cv2.VideoCapture(video_file)
@@ -25,7 +25,10 @@ def detect_faces(video_file, detector, win_title):
 
     cv2.destroyAllWindows()
 
+cv2_base_dir = os.path.dirname(os.path.abspath(cv2.__file__))
+capture = cv2.VideoCapture(0)
 
-haar_face_cascade = cv2.CascadeClassifier('C:\\Users\\pham\\AppData\\Local\\Programs\\Python\\Python38\\Lib\\site-packages\\cv2\\data\\haarcascade_frontalface_default.xml')
+haar_model = os.path.join(cv2_base_dir, 'data/haarcascade_frontalface_alt.xml')
+haar_face_cascade = cv2.CascadeClassifier(haar_model)
 
 detect_faces(0, haar_face_cascade, 'Haar cascade face detector')
