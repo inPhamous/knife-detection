@@ -1,3 +1,5 @@
 knife/
 X.pickle
 Y.pickle
+models/*
+frozen_models/*
