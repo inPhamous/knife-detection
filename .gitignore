@@ -3,3 +3,5 @@ X.pickle
 Y.pickle
 models/*
 frozen_models/*
+.DS_Store
+/data/*/*

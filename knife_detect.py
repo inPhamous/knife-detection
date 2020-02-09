@@ -1,6 +1,6 @@
 import cv2
 import os
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import model_from_json 
 import numpy as np
 
 def prepare_image(frame):
@@ -14,28 +14,24 @@ def detect_knives(video_file, model,  win_title):
         status_cap, frame = cap.read()
         if not status_cap:
             break
-        net = cv2.dnn.readNet(model)
 
-        imgGray = prepare_image(frame)
-        imgGray = imgGray.astype(np.uint8)
-        blob = cv2.dnn.blobFromImage(imgGray,size= (200,200), swapRB=True, crop=False)
-        net.setInput(blob)
-        output = net.forward()
-        print(output)
+        predict = model.predict(prepare_image(frame).reshape(1, 200, 200, 1))
         
-        # cvNet = cv2.dnn.readNetFromTensorflow('./frozen_models/frozen_graph.pb');
-        # cvNet.setInput(cv2.dnn.blobFromImage(prepare_image(frame), size=(200, 200), swapRB=True, crop=False))
-
-        cv2.imshow(win_title, imgGray)
+        print(predict)
+        cv2.imshow(win_title, frame)
 
         if cv2.waitKey(1) == 27:
             break
 
     cv2.destroyAllWindows()
 
-model = './frozen_models/frozen_graph.pb'
+# Loading the model
+json_file = open("./models/model-bw.json", "r")
+model_json = json_file.read()
+json_file.close()
+loaded_model = model_from_json(model_json)
+# load weights into new model
+loaded_model.load_weights("./models/model-bw.h5")
+print("Loaded model from disk")
 
-cv2_base_dir = os.path.dirname(os.path.abspath(cv2.__file__))
-capture = cv2.VideoCapture(0)
-
-detect_knives(0, model, 'Knife Detect')
+detect_knives(0, loaded_model, 'Knife Detect')

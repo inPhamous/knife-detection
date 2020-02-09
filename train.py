@@ -1,73 +1,74 @@
-import tensorflow as tf
+# Importing the Keras libraries and packages
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, Activation, Flatten, Conv2D, MaxPooling2D
-import pickle
-import numpy as np
+from tensorflow.keras.layers import Convolution2D
+from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.layers import Flatten
+from tensorflow.keras.layers import Dense
 
-from tensorflow.python.framework.convert_to_constants import convert_variables_to_constants_v2
-from tensorflow import keras
+# Step 1 - Building the CNN
 
-X = pickle.load(open("x.pickle", "rb"))
-Y = pickle.load(open("y.pickle", "rb"))
+# Initializing the CNN
+classifier = Sequential()
 
-X = X/255.0
+# First convolution layer and pooling
+classifier.add(Convolution2D(32, (3, 3), input_shape=(200, 200, 1), activation='relu'))
+classifier.add(MaxPooling2D(pool_size=(2, 2)))
+# Second convolution layer and pooling
+classifier.add(Convolution2D(32, (3, 3), activation='relu'))
+# input_shape is going to be the pooled feature maps from the previous convolution layer
+classifier.add(MaxPooling2D(pool_size=(2, 2)))
 
-model = Sequential()
-model.add(Conv2D(64, (3,3), input_shape = (200,200,1)))
-model.add(Activation("relu"))
-model.add(MaxPooling2D(pool_size=(2,2)))
+# Flattening the layers
+classifier.add(Flatten())
 
-model.add(Conv2D(64, (3,3)))
-model.add(Activation("relu"))
-model.add(MaxPooling2D(pool_size=(2,2)))
+# Adding a fully connected layer
+classifier.add(Dense(units=128, activation='relu'))
+classifier.add(Dense(units=6, activation='softmax')) # softmax for more than 2
 
-model.add(Flatten())
-model.add(Dense(64))
-
-model.add(Dense(1))
-model.add(Activation('sigmoid'))
-
-model.compile(
-        loss="binary_crossentropy",
-        optimizer="adam",
-        metrics=['accuracy'])
+# Compiling the CNN
+classifier.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']) # binary_crossentropy for more than 2
 
 
-Y = np.asarray(Y)
+# Step 2 - Preparing the train/test data and training the model
 
-model.fit(
-        X,
-        Y, 
-        batch_size=32,
+# Code copied from - https://keras.io/preprocessing/image/
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+train_datagen = ImageDataGenerator(
+        rescale=1./255,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True)
+
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+training_set = train_datagen.flow_from_directory('data/train',
+                                                 target_size=(200, 200),
+                                                 batch_size=5,
+                                                 color_mode='grayscale',
+                                                 class_mode='binary')
+
+test_set = test_datagen.flow_from_directory('data/test',
+                                            target_size=(200, 200),
+                                            batch_size=5,
+                                            color_mode='grayscale',
+                                            class_mode='binary') 
+
+STEP_SIZE_TRAIN=training_set.n
+STEP_SIZE_TEST=test_set.n
+
+classifier.fit(
+        training_set,
         epochs=1,
-        validation_split=0.1)
+        validation_data=test_set)
 
-# Save model to SavedModel format
-tf.saved_model.save(model, "./models")
 
-# Convert Keras model to ConcreteFunction
-full_model = tf.function(lambda x: model(x))
-full_model = full_model.get_concrete_function(
-    tf.TensorSpec(model.inputs[0].shape, model.inputs[0].dtype))
+# Saving the model
+model_json = classifier.to_json()
+with open("./models/model-bw.json", "w") as json_file:
+    json_file.write(model_json)
+classifier.save_weights('./models/model-bw.h5')
 
-# Get frozen ConcreteFunction
-frozen_func = convert_variables_to_constants_v2(full_model)
-frozen_func.graph.as_graph_def()
-
-layers = [op.name for op in frozen_func.graph.get_operations()]
-print("-" * 50)
-print("Frozen model layers: ")
-for layer in layers:
-    print(layer)
-
-print("-" * 50)
-print("Frozen model inputs: ")
-print(frozen_func.inputs)
-print("Frozen model outputs: ")
-print(frozen_func.outputs)
-
-# Save frozen graph from frozen ConcreteFunction to hard drive
-tf.io.write_graph(graph_or_graph_def=frozen_func.graph,
-                    logdir="./frozen_models",
-                    name="frozen_graph.pb",
-                    as_text=False)
